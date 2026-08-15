@@ -7,6 +7,8 @@ import com.QuickRide.entity.Booking;
 import com.QuickRide.entity.RideOffer;
 import com.QuickRide.enums.BookingStatus;
 import com.QuickRide.enums.RideStatus;
+import com.QuickRide.exception.ForbiddenException;
+import com.QuickRide.exception.NotFoundException;
 import com.QuickRide.repository.BookingRepository;
 import com.QuickRide.repository.RideOfferRepository;
 import com.QuickRide.utils.GeoUtils;
@@ -34,6 +36,9 @@ public class RideOfferService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
     public RideOfferResponseDto createRideOffer(CreateRideOfferDto dto, UUID driverId) {
         RideOffer offer = new RideOffer();
         offer.setDriverId(driverId);
@@ -48,7 +53,10 @@ public class RideOfferService {
         offer.setStatus(RideStatus.ACTIVE);
         offer.setCreatedAt(LocalDateTime.now());
         offer.setUpdatedAt(LocalDateTime.now());
-        return new RideOfferResponseDto(rideOfferRepository.save(offer));
+
+        RideOffer save = rideOfferRepository.save(offer);
+        activityLogService.log(driverId, "RIDE_CREATED", "RIDE_OFFER", offer.getId(), null);
+        return new RideOfferResponseDto(save);
     }
 
     public List<RideOfferResponseDto> search(RideSearchRequestDto req) {
@@ -76,10 +84,10 @@ public class RideOfferService {
     @Transactional
     public void cancelRideOffer(UUID rideOfferId, UUID driverId) {
         RideOffer offer = rideOfferRepository.findByIdForUpdate(rideOfferId)
-                .orElseThrow(() -> new IllegalArgumentException("Ride offer not found"));
+                .orElseThrow(() -> new NotFoundException("Ride offer not found"));
 
         if (!offer.getDriverId().equals(driverId)) {
-            throw new IllegalStateException("Not the owner of this ride");
+            throw new ForbiddenException("Not the owner of this ride");
         }
 
         offer.setStatus(RideStatus.CANCELLED);
@@ -93,6 +101,7 @@ public class RideOfferService {
             b.setStatus(BookingStatus.CANCELLED);
             b.setUpdatedAt(LocalDateTime.now());
             bookingRepository.save(b);
+            activityLogService.log(driverId, "RIDE_CANCELLED", "RIDE_OFFER", rideOfferId, null);
             notificationService.notifyUser(b.getPassengerId(), "Ride cancelled",
                     "The driver cancelled the ride you booked.");
         }

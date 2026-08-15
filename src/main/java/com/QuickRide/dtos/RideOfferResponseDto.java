@@ -1,11 +1,12 @@
 package com.QuickRide.dtos;
 
 import com.QuickRide.entity.RideOffer;
+import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
-
+@Data
 public class RideOfferResponseDto {
     private final UUID id;
     private final UUID driverId;

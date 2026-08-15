@@ -2,6 +2,9 @@ package com.QuickRide.service;
 
 import com.QuickRide.entity.OtpVerification;
 import com.QuickRide.entity.User;
+import com.QuickRide.exception.BadRequestException;
+import com.QuickRide.exception.ConflictException;
+import com.QuickRide.exception.NotFoundException;
 import com.QuickRide.repository.OtpVerificationRepository;
 import com.QuickRide.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -34,14 +37,16 @@ public class OtpService {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
     @Transactional
     public void requestOtp(String phone) {
         otpRepository.findByPhoneAndVerifiedFalse(phone).ifPresent(existing -> {
             long secondsSinceCreated = java.time.Duration.between(existing.getCreatedAt(), LocalDateTime.now()).getSeconds();
             if (secondsSinceCreated < RESEND_COOLDOWN_SECONDS) {
-                throw new IllegalStateException("Please wait before requesting another OTP");
+                throw new ConflictException("Please wait before requesting another OTP");
             }
-            // Expired or cooldown passed — remove the stale row so a new one can be created
             otpRepository.delete(existing);
         });
 
@@ -56,9 +61,10 @@ public class OtpService {
         verification.setCreatedAt(LocalDateTime.now());
         otpRepository.save(verification);
 
+        activityLogService.log(null, "OTP_REQUESTED", "USER", null, "{\"phone\":\"" + phone + "\"}");
+
         // STUB: replace with real SMS provider (Twilio/MSG91) later.
-        // Printing to console/logs is ONLY for local development — never do this in production,
-        // since server logs are not a secure channel for delivering a login credential.
+        // Printing to console/logs is ONLY for local development — never do this in production.
         log.info("========================================");
         log.info("OTP for {} is: {}", phone, otp);
         log.info("========================================");
@@ -67,24 +73,27 @@ public class OtpService {
     @Transactional
     public UserWithTokens verifyOtp(String phone, String otp) {
         OtpVerification verification = otpRepository.findByPhoneAndVerifiedFalse(phone)
-                .orElseThrow(() -> new IllegalArgumentException("No pending OTP for this phone"));
+                .orElseThrow(() -> new NotFoundException("No pending OTP for this phone"));
 
         if (verification.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new IllegalStateException("OTP has expired, please request a new one");
+            throw new BadRequestException("OTP has expired, please request a new one");
         }
 
         if (verification.getAttempts() >= MAX_ATTEMPTS) {
-            throw new IllegalStateException("Too many attempts, please request a new OTP");
+            throw new ConflictException("Too many attempts, please request a new OTP");
         }
 
         if (!passwordEncoder.matches(otp, verification.getOtpHash())) {
             verification.setAttempts((short) (verification.getAttempts() + 1));
             otpRepository.save(verification);
-            throw new IllegalArgumentException("Incorrect OTP");
+            activityLogService.log(null, "OTP_VERIFY_FAILED", "USER", null, "{\"phone\":\"" + phone + "\"}");
+            throw new BadRequestException("Incorrect OTP");
         }
 
         verification.setVerified(true);
         otpRepository.save(verification);
+
+        boolean isNewUser = userRepository.findByPhone(phone).isEmpty();
 
         User user = userRepository.findByPhone(phone).orElseGet(() -> {
             User newUser = new User();
@@ -96,6 +105,8 @@ public class OtpService {
 
         String accessToken = jwtService.generateAccessToken(user.getId());
         String refreshToken = jwtService.generateRefreshToken(user.getId());
+
+        activityLogService.log(user.getId(), isNewUser ? "USER_REGISTERED" : "USER_LOGIN", "USER", user.getId(), null);
 
         return new UserWithTokens(user.getId(), accessToken, refreshToken);
     }

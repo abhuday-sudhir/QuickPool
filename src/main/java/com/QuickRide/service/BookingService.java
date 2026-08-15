@@ -5,6 +5,7 @@ import com.QuickRide.entity.Booking;
 import com.QuickRide.entity.RideOffer;
 import com.QuickRide.enums.BookingStatus;
 import com.QuickRide.enums.RideStatus;
+import com.QuickRide.exception.ConflictException;
 import com.QuickRide.repository.BookingRepository;
 import com.QuickRide.repository.RideOfferRepository;
 import jakarta.transaction.Transactional;
@@ -26,16 +27,19 @@ public class BookingService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
     @Transactional
     public UUID bookRide(CreateBookingDto dto, UUID passengerId) {
         RideOffer offer = rideOfferRepository.findByIdForUpdate(dto.getRideOfferId())
                 .orElseThrow(() -> new IllegalArgumentException("Ride offer not found"));
 
         if (offer.getStatus() != RideStatus.ACTIVE) {
-            throw new IllegalStateException("Ride is not available for booking");
+            throw new ConflictException("Ride is not available for booking");
         }
         if (offer.getSeatsAvailable() < dto.getSeatsBooked()) {
-            throw new IllegalStateException("Not enough seats available");
+            throw new ConflictException("Not enough seats available");
         }
 
         Booking booking = new Booking();
@@ -54,6 +58,8 @@ public class BookingService {
         }
         offer.setUpdatedAt(LocalDateTime.now());
         rideOfferRepository.save(offer);
+
+        activityLogService.log(passengerId, "BOOKING_CREATED", "BOOKING", booking.getId(), null);
 
         notificationService.notifyUser(offer.getDriverId(), "New booking",
                 "A passenger booked " + dto.getSeatsBooked() + " seat(s) on your ride.");
@@ -86,6 +92,8 @@ public class BookingService {
         }
         offer.setUpdatedAt(LocalDateTime.now());
         rideOfferRepository.save(offer);
+
+        activityLogService.log(passengerId, "BOOKING_CANCELLED", "BOOKING", bookingId, null);
 
         notificationService.notifyUser(offer.getDriverId(), "Booking cancelled",
                 "A passenger cancelled their seat on your ride.");

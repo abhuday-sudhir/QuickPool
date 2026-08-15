@@ -63,4 +63,13 @@ public class JwtService {
             return false;
         }
     }
+
+    public String extractType(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(key())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+        return claims.get("type", String.class);
+    }
 }

@@ -7,3 +7,22 @@ services:
       POSTGRES_PASSWORD: carpool
     ports:
       - "5434:5432"
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+volumes:
+  carpool_pgdata:
+  grafana_data:
