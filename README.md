@@ -1,4 +1,4 @@
-# QuickRide — Carpool Backend: Project Documentation
+# QuickPool — Carpool Backend: Project Documentation
 
 **Purpose of this document:** complete context of what has been built, how it's structured, what works, what's stubbed, and what's left — intended to be handed to another LLM (or developer) to continue the work with full context.
 
