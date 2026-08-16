@@ -1,6 +1,6 @@
 spring:
   application:
-    name: Carpool
+    name: QuickPool
 
   datasource:
     url: jdbc:postgresql://localhost:5434/carpool

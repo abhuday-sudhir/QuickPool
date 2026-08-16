@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class Carpool {
+public class Quickpool {
 
 	public static void main(String[] args) {
-		SpringApplication.run(Carpool.class, args);
+		SpringApplication.run(Quickpool.class, args);
 	}
 
 }
