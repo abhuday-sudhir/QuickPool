@@ -2,6 +2,7 @@ package com.QuickPool.controller;
 
 import com.QuickPool.dtos.*;
 import com.QuickPool.service.RideOfferService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +18,7 @@ public class RideOfferController {
     private RideOfferService rideOfferService;
 
     @PostMapping
-    public RideOfferResponseDto create(@RequestBody CreateRideOfferDto dto, Authentication auth) {
+    public RideOfferResponseDto create(@Valid  @RequestBody CreateRideOfferDto dto, Authentication auth) {
         UUID driverId = (UUID) auth.getPrincipal();
         return rideOfferService.createRideOffer(dto, driverId);
     }
@@ -31,5 +32,16 @@ public class RideOfferController {
     public void cancel(@PathVariable UUID id, Authentication auth) {
         UUID driverId = (UUID) auth.getPrincipal();
         rideOfferService.cancelRideOffer(id, driverId);
+    }
+    @PutMapping("/{id}/start")
+    public void start(@PathVariable UUID id, Authentication auth) {
+        UUID driverId = (UUID) auth.getPrincipal();
+        rideOfferService.startRide(id, driverId);
+    }
+
+    @GetMapping("/mine")
+    public List<RideOfferResponseDto> myRides(Authentication auth) {
+        UUID driverId = (UUID) auth.getPrincipal();
+        return rideOfferService.getMyRides(driverId);
     }
 }

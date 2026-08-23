@@ -4,6 +4,7 @@ import com.QuickPool.dtos.*;
 import com.QuickPool.exception.BadRequestException;
 import com.QuickPool.service.JwtService;
 import com.QuickPool.service.OtpService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,13 +21,13 @@ public class AuthController {
     private JwtService jwtService;
 
     @PostMapping("/otp/request")
-    public String requestOtp(@RequestBody OtpRequestDto dto) {
+    public String requestOtp(@Valid @RequestBody OtpRequestDto dto) {
         otpService.requestOtp(dto.getPhone());
         return "OTP sent"; // check your terminal/console logs for the actual code
     }
 
     @PostMapping("/otp/verify")
-    public AuthResponseDto verifyOtp(@RequestBody OtpVerifyDto dto) {
+    public AuthResponseDto verifyOtp(@Valid @RequestBody OtpVerifyDto dto) {
         var result = otpService.verifyOtp(dto.getPhone(), dto.getOtp());
         return new AuthResponseDto(result.userId(), result.accessToken(), result.refreshToken());
     }

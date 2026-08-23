@@ -3,6 +3,7 @@ package com.QuickPool.controller;
 import com.QuickPool.dtos.LocationBroadcastDto;
 import com.QuickPool.dtos.LocationUpdateDto;
 import com.QuickPool.entity.RideOffer;
+import com.QuickPool.enums.RideStatus;
 import com.QuickPool.repository.BookingRepository;
 import com.QuickPool.repository.RideOfferRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,10 @@ public class LocationController {
 
         RideOffer offer = rideOfferRepository.findById(rideId)
                 .orElseThrow(() -> new IllegalArgumentException("Ride not found"));
+
+        if (offer.getStatus() != RideStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Ride is not currently active for location sharing");
+        }
 
         String role;
         if (offer.getDriverId().equals(userId)) {

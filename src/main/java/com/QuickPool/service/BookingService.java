@@ -1,11 +1,13 @@
 package com.QuickPool.service;
 
+import com.QuickPool.dtos.BookingWithRideDto;
 import com.QuickPool.dtos.CreateBookingDto;
 import com.QuickPool.entity.Booking;
 import com.QuickPool.entity.RideOffer;
 import com.QuickPool.enums.BookingStatus;
 import com.QuickPool.enums.RideStatus;
 import com.QuickPool.exception.ConflictException;
+import com.QuickPool.exception.NotFoundException;
 import com.QuickPool.repository.BookingRepository;
 import com.QuickPool.repository.RideOfferRepository;
 import jakarta.transaction.Transactional;
@@ -13,7 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class BookingService {
@@ -97,5 +101,14 @@ public class BookingService {
 
         notificationService.notifyUser(offer.getDriverId(), "Booking cancelled",
                 "A passenger cancelled their seat on your ride.");
+    }
+    public List<BookingWithRideDto> getMyBookings(UUID passengerId) {
+        return bookingRepository.findByPassengerIdOrderByCreatedAtDesc(passengerId).stream()
+                .map(b -> {
+                    RideOffer offer = rideOfferRepository.findById(b.getRideOfferId())
+                            .orElseThrow(() -> new NotFoundException("Ride offer not found"));
+                    return new BookingWithRideDto(b, offer);
+                })
+                .collect(Collectors.toList());
     }
 }

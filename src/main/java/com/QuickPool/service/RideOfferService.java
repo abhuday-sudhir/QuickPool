@@ -7,6 +7,7 @@ import com.QuickPool.entity.Booking;
 import com.QuickPool.entity.RideOffer;
 import com.QuickPool.enums.BookingStatus;
 import com.QuickPool.enums.RideStatus;
+import com.QuickPool.exception.ConflictException;
 import com.QuickPool.exception.ForbiddenException;
 import com.QuickPool.exception.NotFoundException;
 import com.QuickPool.repository.BookingRepository;
@@ -105,5 +106,28 @@ public class RideOfferService {
             notificationService.notifyUser(b.getPassengerId(), "Ride cancelled",
                     "The driver cancelled the ride you booked.");
         }
+    }
+
+    @Transactional
+    public void startRide(UUID rideOfferId, UUID driverId) {
+        RideOffer offer = rideOfferRepository.findByIdForUpdate(rideOfferId)
+                .orElseThrow(() -> new NotFoundException("Ride offer not found"));
+
+        if (!offer.getDriverId().equals(driverId)) {
+            throw new ForbiddenException("Not the owner of this ride");
+        }
+        if (offer.getStatus() != RideStatus.ACTIVE && offer.getStatus() != RideStatus.FULL) {
+            throw new ConflictException("Ride cannot be started from its current state");
+        }
+
+        offer.setStatus(RideStatus.IN_PROGRESS);
+        offer.setUpdatedAt(LocalDateTime.now());
+        rideOfferRepository.save(offer);
+        activityLogService.log(driverId, "RIDE_STARTED", "RIDE_OFFER", rideOfferId, null);
+    }
+
+    public List<RideOfferResponseDto> getMyRides(UUID driverId) {
+        return rideOfferRepository.findByDriverIdOrderByCreatedAtDesc(driverId)
+                .stream().map(RideOfferResponseDto::new).collect(Collectors.toList());
     }
 }
