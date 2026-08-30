@@ -23,5 +23,8 @@ public interface RideOfferRepository extends JpaRepository<RideOffer, UUID> {
 
     List<RideOffer> findByDriverId(UUID driverId);
 
+    List<RideOffer> findByStatusInAndDepartureTimeBefore(
+            java.util.Collection<RideStatus> statuses, LocalDateTime cutoff);
+
     List<RideOffer> findByDriverIdOrderByCreatedAtDesc(UUID driverId);
 }
