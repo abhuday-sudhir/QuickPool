@@ -35,20 +35,23 @@ public class OtpService {
     private UserRepository userRepository;
 
     @Autowired
-    private JwtService jwtService;
-
-    @Autowired
     private ActivityLogService activityLogService;
 
     @Transactional
     public void requestOtp(String phone) {
-        otpRepository.findByPhoneAndVerifiedFalse(phone).ifPresent(existing -> {
-            long secondsSinceCreated = java.time.Duration.between(existing.getCreatedAt(), LocalDateTime.now()).getSeconds();
+        var existing = otpRepository.findByPhoneAndVerifiedFalse(phone);
+        if (existing.isPresent()) {
+            long secondsSinceCreated =
+                    java.time.Duration.between(existing.get().getCreatedAt(), LocalDateTime.now()).getSeconds();
             if (secondsSinceCreated < RESEND_COOLDOWN_SECONDS) {
                 throw new ConflictException("Please wait before requesting another OTP");
             }
-            otpRepository.delete(existing);
-        });
+            otpRepository.delete(existing.get());
+            // Hibernate flushes inserts before deletes, which trips the partial unique
+            // index idx_otp_active_phone(phone) WHERE verified = false. Force the DELETE
+            // out now so the INSERT below cannot collide with the row we just removed.
+            otpRepository.flush();
+        }
 
         String otp = String.format("%06d", random.nextInt(1_000_000));
 
@@ -71,7 +74,7 @@ public class OtpService {
     }
 
     @Transactional
-    public UserWithTokens verifyOtp(String phone, String otp) {
+    public VerifiedUser verifyOtp(String phone, String otp) {
         OtpVerification verification = otpRepository.findByPhoneAndVerifiedFalse(phone)
                 .orElseThrow(() -> new NotFoundException("No pending OTP for this phone"));
 
@@ -93,6 +96,12 @@ public class OtpService {
         verification.setVerified(true);
         otpRepository.save(verification);
 
+        userRepository.findByPhone(phone).ifPresent(existing -> {
+            if (existing.getDeletedAt() != null) {
+                throw new ConflictException("This account was deleted");
+            }
+        });
+
         boolean isNewUser = userRepository.findByPhone(phone).isEmpty();
 
         User user = userRepository.findByPhone(phone).orElseGet(() -> {
@@ -103,13 +112,12 @@ public class OtpService {
             return userRepository.save(newUser);
         });
 
-        String accessToken = jwtService.generateAccessToken(user.getId());
-        String refreshToken = jwtService.generateRefreshToken(user.getId());
-
         activityLogService.log(user.getId(), isNewUser ? "USER_REGISTERED" : "USER_LOGIN", "USER", user.getId(), null);
 
-        return new UserWithTokens(user.getId(), accessToken, refreshToken);
+        return new VerifiedUser(user.getId(),
+                com.QuickPool.dtos.UserResponseDto.isComplete(user));
     }
 
-    public record UserWithTokens(UUID userId, String accessToken, String refreshToken) {}
+    /** Token issuing lives in TokenService so refresh rotation has a single owner. */
+    public record VerifiedUser(UUID userId, boolean profileComplete) {}
 }

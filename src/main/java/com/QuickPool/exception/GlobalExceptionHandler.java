@@ -36,6 +36,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "FORBIDDEN", ex.getMessage());
     }
 
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ErrorResponse> handleTooMany(TooManyRequestsException ex) {
+        return build(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_REQUESTS", ex.getMessage());
+    }
+
     // Catches @Valid failures on request bodies and returns field-level messages
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
