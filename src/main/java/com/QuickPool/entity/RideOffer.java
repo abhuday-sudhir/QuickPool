@@ -52,6 +52,15 @@ public class RideOffer {
     @Column(nullable = false)
     private RideStatus status = RideStatus.ACTIVE;
 
+    @Column(name = "last_lat")
+    private Double lastLat;
+
+    @Column(name = "last_lng")
+    private Double lastLng;
+
+    @Column(name = "last_location_at")
+    private java.time.LocalDateTime lastLocationAt;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
