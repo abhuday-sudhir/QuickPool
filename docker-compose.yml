@@ -8,6 +8,12 @@ services:
     ports:
       - "5434:5432"
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+
   prometheus:
     image: prom/prometheus:latest
     volumes:

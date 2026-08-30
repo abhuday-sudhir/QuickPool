@@ -20,13 +20,26 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+      connect-timeout: 2s
+
+  cache:
+    type: redis
+
 logging:
   level:
     org.flywaydb: DEBUG
 
 app:
   jwt:
-    secret: "change-this-to-a-long-random-string-at-least-32-chars-for-production"
+    # Never commit a real secret. Set JWT_SECRET in the environment when deploying;
+    # the fallback below is development-only and the app refuses to boot with it under
+    # the "prod" profile. Generate one with: openssl rand -base64 48
+    secret: ${JWT_SECRET:dev-only-insecure-secret-min-32-chars-change-me}
     access-token-minutes: 15
     refresh-token-days: 30
 

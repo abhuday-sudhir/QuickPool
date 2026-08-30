@@ -60,6 +60,15 @@ public class LocationController {
             role = "PASSENGER";
         }
 
+        // Keep the latest driver fix so a shared trip link has something to show.
+        // Passenger positions are not stored — only the vehicle's is useful to a follower.
+        if ("DRIVER".equals(role)) {
+            offer.setLastLat(update.getLat());
+            offer.setLastLng(update.getLng());
+            offer.setLastLocationAt(java.time.LocalDateTime.now());
+            rideOfferRepository.save(offer);
+        }
+
         LocationBroadcastDto broadcast = new LocationBroadcastDto(
                 userId, role, update.getLat(), update.getLng(), System.currentTimeMillis());
 

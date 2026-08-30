@@ -1,5 +1,6 @@
 package com.QuickPool.controller;
 
+import com.QuickPool.dtos.BookingRequestDto;
 import com.QuickPool.dtos.BookingWithRideDto;
 import com.QuickPool.dtos.CreateBookingDto;
 import com.QuickPool.service.BookingService;
@@ -19,7 +20,7 @@ public class BookingController {
     private BookingService bookingService;
 
     @PostMapping
-    public UUID book(@Valid  @RequestBody CreateBookingDto dto, Authentication auth) {
+    public UUID book(@Valid @RequestBody CreateBookingDto dto, Authentication auth) {
         UUID passengerId = (UUID) auth.getPrincipal();
         return bookingService.bookRide(dto, passengerId);
     }
@@ -29,9 +30,29 @@ public class BookingController {
         UUID passengerId = (UUID) auth.getPrincipal();
         bookingService.cancelBooking(id, passengerId);
     }
+
+    @PutMapping("/{id}/accept")
+    public void accept(@PathVariable UUID id, Authentication auth) {
+        UUID driverId = (UUID) auth.getPrincipal();
+        bookingService.acceptBooking(id, driverId);
+    }
+
+    @PutMapping("/{id}/reject")
+    public void reject(@PathVariable UUID id, Authentication auth) {
+        UUID driverId = (UUID) auth.getPrincipal();
+        bookingService.rejectBooking(id, driverId);
+    }
+
     @GetMapping("/mine")
     public List<BookingWithRideDto> myBookings(Authentication auth) {
         UUID passengerId = (UUID) auth.getPrincipal();
         return bookingService.getMyBookings(passengerId);
+    }
+
+    /** Bookings other people made on rides I'm driving. */
+    @GetMapping("/requests")
+    public List<BookingRequestDto> bookingRequests(Authentication auth) {
+        UUID driverId = (UUID) auth.getPrincipal();
+        return bookingService.getBookingRequestsForDriver(driverId);
     }
 }

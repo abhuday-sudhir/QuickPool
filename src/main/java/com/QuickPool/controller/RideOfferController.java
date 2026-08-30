@@ -24,8 +24,9 @@ public class RideOfferController {
     }
 
     @PostMapping("/search")
-    public List<RideOfferResponseDto> search(@RequestBody RideSearchRequestDto dto) {
-        return rideOfferService.search(dto);
+    public List<RideOfferResponseDto> search(@RequestBody RideSearchRequestDto dto, Authentication auth) {
+        UUID viewerId = (UUID) auth.getPrincipal();
+        return rideOfferService.search(dto, viewerId);
     }
 
     @PutMapping("/{id}/cancel")
@@ -37,6 +38,13 @@ public class RideOfferController {
     public void start(@PathVariable UUID id, Authentication auth) {
         UUID driverId = (UUID) auth.getPrincipal();
         rideOfferService.startRide(id, driverId);
+    }
+
+    /** Batch lookup for rides the caller is involved in. */
+    @GetMapping
+    public List<RideOfferResponseDto> byIds(@RequestParam("ids") List<UUID> ids, Authentication auth) {
+        UUID viewerId = (UUID) auth.getPrincipal();
+        return rideOfferService.visibleByIds(ids, viewerId);
     }
 
     @GetMapping("/mine")

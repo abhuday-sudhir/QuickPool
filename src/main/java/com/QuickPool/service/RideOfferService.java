@@ -5,13 +5,18 @@ import com.QuickPool.dtos.RideOfferResponseDto;
 import com.QuickPool.dtos.RideSearchRequestDto;
 import com.QuickPool.entity.Booking;
 import com.QuickPool.entity.RideOffer;
+import com.QuickPool.entity.User;
+import com.QuickPool.entity.Vehicle;
 import com.QuickPool.enums.BookingStatus;
+import com.QuickPool.enums.NotificationType;
 import com.QuickPool.enums.RideStatus;
 import com.QuickPool.exception.ConflictException;
 import com.QuickPool.exception.ForbiddenException;
 import com.QuickPool.exception.NotFoundException;
 import com.QuickPool.repository.BookingRepository;
 import com.QuickPool.repository.RideOfferRepository;
+import com.QuickPool.repository.UserRepository;
+import com.QuickPool.repository.VehicleRepository;
 import com.QuickPool.utils.GeoUtils;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,12 +40,28 @@ public class RideOfferService {
     private BookingRepository bookingRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private VehicleRepository vehicleRepository;
+
+    @Autowired
+    private SafetyService safetyService;
+
+    @Autowired
     private NotificationService notificationService;
 
     @Autowired
     private ActivityLogService activityLogService;
 
     public RideOfferResponseDto createRideOffer(CreateRideOfferDto dto, UUID driverId) {
+        if (dto.getDepartureTime() == null || dto.getDepartureTime().isBefore(LocalDateTime.now())) {
+            throw new ConflictException("Departure time must be in the future");
+        }
+        if (dto.getSeatsTotal() == null || dto.getSeatsTotal() < 1) {
+            throw new ConflictException("A ride must offer at least one seat");
+        }
+
         RideOffer offer = new RideOffer();
         offer.setDriverId(driverId);
         offer.setOriginLat(dto.getOriginLat());
@@ -60,18 +81,38 @@ public class RideOfferService {
         return new RideOfferResponseDto(save);
     }
 
-    public List<RideOfferResponseDto> search(RideSearchRequestDto req) {
+    /** @param viewerId the searching user, whose own rides are never returned */
+    public List<RideOfferResponseDto> search(RideSearchRequestDto req, UUID viewerId) {
         LocalDateTime from = req.getEarliestTime() != null
                 ? req.getEarliestTime() : LocalDateTime.now();
         LocalDateTime to = req.getLatestTime() != null
                 ? req.getLatestTime() : from.plusHours(SEARCH_WINDOW_HOURS);
 
-        return rideOfferRepository.findByStatusAndDepartureTimeBetween(RideStatus.ACTIVE, from, to)
+        // Blocked in either direction: their rides must not surface for this viewer.
+        var hidden = safetyService.hiddenFrom(viewerId);
+
+        var matches = rideOfferRepository
+                .findByStatusAndDepartureTimeBetween(RideStatus.ACTIVE, from, to)
                 .stream()
+                .filter(r -> !r.getDriverId().equals(viewerId))
+                .filter(r -> !hidden.contains(r.getDriverId()))
                 .filter(r -> r.getSeatsAvailable() > 0)
                 .filter(r -> withinCorridor(r, req.getPickupLat(), req.getPickupLng())
                         && withinCorridor(r, req.getDropLat(), req.getDropLng()))
-                .map(RideOfferResponseDto::new)
+                .toList();
+
+        // One lookup for every driver on the page instead of one per ride.
+        var driverIds = matches.stream().map(RideOffer::getDriverId).distinct().toList();
+        var drivers = userRepository.findAllById(driverIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        var vehicles = vehicleRepository.findByUserIdIn(driverIds).stream()
+                .collect(Collectors.toMap(Vehicle::getUserId, v -> v));
+
+        return matches.stream()
+                .map(r -> new RideOfferResponseDto(
+                        r,
+                        drivers.get(r.getDriverId()),
+                        vehicles.get(r.getDriverId())))
                 .collect(Collectors.toList());
     }
 
@@ -95,16 +136,19 @@ public class RideOfferService {
         offer.setUpdatedAt(LocalDateTime.now());
         rideOfferRepository.save(offer);
 
-        List<Booking> activeBookings =
-                bookingRepository.findByRideOfferIdAndStatus(rideOfferId, BookingStatus.CONFIRMED);
+        // Both confirmed seats and still-pending requests die with the ride.
+        List<Booking> activeBookings = bookingRepository.findByRideOfferIdAndStatusIn(
+                rideOfferId, List.of(BookingStatus.CONFIRMED, BookingStatus.PENDING));
+
+        activityLogService.log(driverId, "RIDE_CANCELLED", "RIDE_OFFER", rideOfferId, null);
 
         for (Booking b : activeBookings) {
             b.setStatus(BookingStatus.CANCELLED);
             b.setUpdatedAt(LocalDateTime.now());
             bookingRepository.save(b);
-            activityLogService.log(driverId, "RIDE_CANCELLED", "RIDE_OFFER", rideOfferId, null);
             notificationService.notifyUser(b.getPassengerId(), "Ride cancelled",
-                    "The driver cancelled the ride you booked.");
+                    "The driver cancelled the ride you booked.",
+                    NotificationType.RIDE_CANCELLED, rideOfferId);
         }
     }
 
@@ -124,6 +168,40 @@ public class RideOfferService {
         offer.setUpdatedAt(LocalDateTime.now());
         rideOfferRepository.save(offer);
         activityLogService.log(driverId, "RIDE_STARTED", "RIDE_OFFER", rideOfferId, null);
+
+        for (Booking b : bookingRepository.findByRideOfferIdAndStatus(rideOfferId, BookingStatus.CONFIRMED)) {
+            notificationService.notifyUser(b.getPassengerId(), "Ride started",
+                    "Your driver has started the ride. You can track them live now.",
+                    NotificationType.RIDE_STARTED, rideOfferId);
+        }
+    }
+
+    /**
+     * Look up specific rides, but only ones the caller is actually part of — either
+     * they drive it or they hold a booking on it. Stops ride ids being enumerated
+     * for other people's driver details.
+     */
+    public List<RideOfferResponseDto> visibleByIds(List<UUID> ids, UUID viewerId) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        var involvedRideIds = bookingRepository.findByPassengerId(viewerId).stream()
+                .map(Booking::getRideOfferId)
+                .collect(Collectors.toSet());
+
+        var rides = rideOfferRepository.findAllById(ids).stream()
+                .filter(r -> r.getDriverId().equals(viewerId) || involvedRideIds.contains(r.getId()))
+                .toList();
+
+        var driverIds = rides.stream().map(RideOffer::getDriverId).distinct().toList();
+        var drivers = userRepository.findAllById(driverIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        var vehicles = vehicleRepository.findByUserIdIn(driverIds).stream()
+                .collect(Collectors.toMap(Vehicle::getUserId, v -> v));
+
+        return rides.stream()
+                .map(r -> new RideOfferResponseDto(r, drivers.get(r.getDriverId()), vehicles.get(r.getDriverId())))
+                .collect(Collectors.toList());
     }
 
     public List<RideOfferResponseDto> getMyRides(UUID driverId) {

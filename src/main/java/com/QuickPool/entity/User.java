@@ -27,8 +27,14 @@ public class User {
     @Column(name = "role_flags", nullable = false)
     private Short roleFlags = 1;
 
+    @Column(name = "email_verified", nullable = false)
+    private Boolean emailVerified = false;
+
     @Column(name = "rating_avg")
     private java.math.BigDecimal ratingAvg;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
