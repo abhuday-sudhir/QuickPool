@@ -13,4 +13,6 @@ public class AuthResponseDto {
     private UUID userId;
     private String accessToken;
     private String refreshToken;
+    /** Lets the app send first-time users to registration instead of Home. */
+    private boolean profileComplete;
 }
