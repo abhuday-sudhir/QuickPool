@@ -14,6 +14,8 @@ public interface RatingRepository extends JpaRepository<Rating, UUID> {
 
     List<Rating> findByRateeIdOrderByCreatedAtDesc(UUID rateeId);
 
+    List<Rating> findByRaterId(UUID raterId);
+
     @Query("select avg(r.stars) from Rating r where r.rateeId = :userId")
     Double averageFor(@Param("userId") UUID userId);
 

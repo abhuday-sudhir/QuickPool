@@ -1,5 +1,6 @@
 package com.QuickPool.service;
 
+import com.QuickPool.dtos.GivenRatingDto;
 import com.QuickPool.dtos.RateUserDto;
 import com.QuickPool.dtos.RatingDto;
 import com.QuickPool.entity.Booking;
@@ -78,6 +79,14 @@ public class RatingService {
         ratingRepository.save(rating);
 
         recomputeAverage(dto.getRateeId());
+    }
+
+    /** Every rating this user has handed out — the app uses it to disable "Rate". */
+    public List<GivenRatingDto> ratingsGivenBy(UUID raterId) {
+        return ratingRepository.findByRaterId(raterId).stream()
+                .map(r -> new GivenRatingDto(
+                        r.getRideOfferId().toString(), r.getRateeId().toString(), r.getStars()))
+                .collect(Collectors.toList());
     }
 
     public List<RatingDto> reviewsFor(UUID userId) {

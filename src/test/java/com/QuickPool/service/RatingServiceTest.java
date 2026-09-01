@@ -1,7 +1,9 @@
 package com.QuickPool.service;
 
+import com.QuickPool.dtos.GivenRatingDto;
 import com.QuickPool.dtos.RateUserDto;
 import com.QuickPool.entity.Booking;
+import com.QuickPool.entity.Rating;
 import com.QuickPool.entity.RideOffer;
 import com.QuickPool.entity.User;
 import com.QuickPool.enums.BookingStatus;
@@ -147,5 +149,24 @@ class RatingServiceTest {
         service.rate(passenger, d2);
 
         verify(ratingRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("ratingsGivenBy lists what the caller has already rated, so the app can disable Rate")
+    void listsRatingsGiven() {
+        Rating given = new Rating();
+        given.setRideOfferId(rideId);
+        given.setRaterId(passenger);
+        given.setRateeId(driver);
+        given.setStars((short) 4);
+        when(ratingRepository.findByRaterId(passenger)).thenReturn(List.of(given));
+
+        List<GivenRatingDto> result = service.ratingsGivenBy(passenger);
+
+        assertThat(result).singleElement().satisfies(r -> {
+            assertThat(r.getRideOfferId()).isEqualTo(rideId.toString());
+            assertThat(r.getRateeId()).isEqualTo(driver.toString());
+            assertThat(r.getStars()).isEqualTo(4);
+        });
     }
 }

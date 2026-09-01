@@ -1,5 +1,6 @@
 package com.QuickPool.controller;
 
+import com.QuickPool.dtos.GivenRatingDto;
 import com.QuickPool.dtos.RateUserDto;
 import com.QuickPool.dtos.RatingDto;
 import com.QuickPool.dtos.ReportUserDto;
@@ -26,6 +27,11 @@ public class SafetyController {
     @PostMapping("/ratings")
     public void rate(@Valid @RequestBody RateUserDto dto, Authentication auth) {
         ratingService.rate((UUID) auth.getPrincipal(), dto);
+    }
+
+    @GetMapping("/ratings/mine")
+    public List<GivenRatingDto> myRatings(Authentication auth) {
+        return ratingService.ratingsGivenBy((UUID) auth.getPrincipal());
     }
 
     @GetMapping("/users/{id}/ratings")
