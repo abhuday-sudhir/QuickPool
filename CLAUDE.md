@@ -74,3 +74,10 @@ Package layout under `src/main/java/com/QuickPool/`: `controller`, `service`, `r
   no admin endpoints exist yet.
 - **Config**: `src/main/resources/application.yml` is checked into git with dev credentials
   (`carpool`/`carpool`) and a placeholder JWT secret — there is no `.env` file in this repo.
+- **Directions proxy**: `DirectionsService` fronts the Google Directions Web Service so the key
+  stays here rather than in the APK — Directions ignores the Android package/signature restriction
+  the Maps SDK relies on, so a shipped key is extractable and billable. Set `MAPS_SERVER_KEY` in the
+  environment (`app.maps.directions-key`); unset, it logs an error and every route fails. Responses
+  are cached in Redis for 7 days, keyed on origin/destination rounded to ~11m so GPS jitter still
+  hits. The rounding lives in the `@Cacheable` key expression on purpose: routing through a helper
+  method on the same bean would be a self-invocation and would skip the cache entirely.

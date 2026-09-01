@@ -43,6 +43,13 @@ app:
     access-token-minutes: 15
     refresh-token-days: 30
 
+  maps:
+    # Server-side Google Directions key. Kept out of the APK deliberately: Directions is a
+    # Web Service API and cannot be restricted by Android package + signing certificate, so
+    # a key shipped to the client is extractable and billable by anyone. This one should
+    # carry an IP restriction naming this server, and be limited to the Directions API.
+    directions-key: ${MAPS_SERVER_KEY:}
+
 management:
   endpoints:
     web:

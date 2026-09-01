@@ -24,6 +24,8 @@ public class CacheConfig implements CachingConfigurer {
     public static final String FREQUENT_DESTINATIONS = "frequentDestinations";
     public static final String RECENT_DESTINATIONS = "recentDestinations";
     public static final String SAVED_ADDRESSES = "savedAddresses";
+    /** Proxied Google Directions routes, keyed on rounded origin/destination. */
+    public static final String DIRECTIONS = "directions";
 
     /**
      * Declared explicitly rather than leaning on auto-configuration, so the cache
@@ -39,6 +41,9 @@ public class CacheConfig implements CachingConfigurer {
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(config)
+                // Routes are worth holding longer than the 6h default: road geometry is stable,
+                // and each miss is a billed Directions call.
+                .withCacheConfiguration(DIRECTIONS, config.entryTtl(Duration.ofDays(7)))
                 .build();
     }
 
