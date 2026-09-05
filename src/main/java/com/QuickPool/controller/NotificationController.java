@@ -1,19 +1,21 @@
 package com.QuickPool.controller;
 
 import com.QuickPool.dtos.NotificationDto;
+import com.QuickPool.dtos.PageResponseDto;
 import com.QuickPool.entity.Notification;
 import com.QuickPool.exception.ForbiddenException;
 import com.QuickPool.exception.NotFoundException;
 import com.QuickPool.repository.NotificationRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -23,11 +25,12 @@ public class NotificationController {
     private NotificationRepository notificationRepository;
 
     @GetMapping
-    public List<NotificationDto> list(Authentication auth) {
+    public PageResponseDto<NotificationDto> list(
+            Authentication auth, @PageableDefault(size = 20) Pageable pageable) {
         UUID userId = (UUID) auth.getPrincipal();
-        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .map(NotificationDto::new)
-                .collect(Collectors.toList());
+        Slice<Notification> slice = notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        var content = slice.getContent().stream().map(NotificationDto::new).toList();
+        return new PageResponseDto<>(content, slice.hasNext());
     }
 
     @GetMapping("/unread-count")

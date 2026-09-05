@@ -3,6 +3,7 @@ package com.QuickPool.service;
 import com.QuickPool.dtos.BookingRequestDto;
 import com.QuickPool.dtos.BookingWithRideDto;
 import com.QuickPool.dtos.CreateBookingDto;
+import com.QuickPool.dtos.PageResponseDto;
 import com.QuickPool.entity.Booking;
 import com.QuickPool.entity.RideOffer;
 import com.QuickPool.entity.User;
@@ -17,9 +18,12 @@ import com.QuickPool.repository.RideOfferRepository;
 import com.QuickPool.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -163,33 +167,46 @@ public class BookingService {
                 NotificationType.BOOKING_CANCELLED, booking.getId());
     }
 
-    public List<BookingWithRideDto> getMyBookings(UUID passengerId) {
-        return bookingRepository.findByPassengerIdOrderByCreatedAtDesc(passengerId).stream()
-                .map(b -> {
-                    RideOffer offer = rideOfferRepository.findById(b.getRideOfferId())
-                            .orElseThrow(() -> new NotFoundException("Ride offer not found"));
-                    return new BookingWithRideDto(b, offer);
-                })
-                .collect(Collectors.toList());
+    /**
+     * One page of this passenger's bookings, newest first. Rides for the whole page are
+     * fetched in a single {@code findAllById} rather than one {@code findById} per booking —
+     * that loop used to run one extra query per row (PRODUCTION_TASKS.md 3.3).
+     */
+    public PageResponseDto<BookingWithRideDto> getMyBookings(UUID passengerId, Pageable pageable) {
+        Slice<Booking> slice = bookingRepository.findByPassengerIdOrderByCreatedAtDesc(passengerId, pageable);
+        Map<UUID, RideOffer> offers = ridesByIds(slice.getContent(), Booking::getRideOfferId);
+
+        var content = slice.getContent().stream()
+                .map(b -> new BookingWithRideDto(b, offers.get(b.getRideOfferId())))
+                .toList();
+        return new PageResponseDto<>(content, slice.hasNext());
     }
 
-    /** Every booking made on rides this driver owns, newest first. */
-    public List<BookingRequestDto> getBookingRequestsForDriver(UUID driverId) {
+    /** One page of bookings made on rides this driver owns, newest first. */
+    public PageResponseDto<BookingRequestDto> getBookingRequestsForDriver(UUID driverId, Pageable pageable) {
         List<UUID> myRideIds = rideOfferRepository.findByDriverId(driverId).stream()
                 .map(RideOffer::getId)
                 .collect(Collectors.toList());
         if (myRideIds.isEmpty()) {
-            return List.of();
+            return new PageResponseDto<>(List.of(), false);
         }
 
-        return bookingRepository.findByRideOfferIdInOrderByCreatedAtDesc(myRideIds).stream()
-                .map(b -> {
-                    RideOffer offer = rideOfferRepository.findById(b.getRideOfferId())
-                            .orElseThrow(() -> new NotFoundException("Ride offer not found"));
-                    User passenger = userRepository.findById(b.getPassengerId()).orElse(null);
-                    return new BookingRequestDto(b, offer, passenger);
-                })
-                .collect(Collectors.toList());
+        Slice<Booking> slice = bookingRepository.findByRideOfferIdInOrderByCreatedAtDesc(myRideIds, pageable);
+        Map<UUID, RideOffer> offers = ridesByIds(slice.getContent(), Booking::getRideOfferId);
+        Map<UUID, User> passengers = userRepository.findAllById(
+                        slice.getContent().stream().map(Booking::getPassengerId).distinct().toList())
+                .stream().collect(Collectors.toMap(User::getId, u -> u));
+
+        var content = slice.getContent().stream()
+                .map(b -> new BookingRequestDto(b, offers.get(b.getRideOfferId()), passengers.get(b.getPassengerId())))
+                .toList();
+        return new PageResponseDto<>(content, slice.hasNext());
+    }
+
+    private Map<UUID, RideOffer> ridesByIds(List<Booking> bookings, java.util.function.Function<Booking, UUID> rideOfferId) {
+        var ids = bookings.stream().map(rideOfferId).distinct().toList();
+        return rideOfferRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(RideOffer::getId, r -> r));
     }
 
     private RideOffer requireDriverOwns(Booking booking, UUID driverId) {

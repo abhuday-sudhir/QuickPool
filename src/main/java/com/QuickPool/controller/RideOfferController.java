@@ -4,6 +4,8 @@ import com.QuickPool.dtos.*;
 import com.QuickPool.service.RideOfferService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,8 +50,9 @@ public class RideOfferController {
     }
 
     @GetMapping("/mine")
-    public List<RideOfferResponseDto> myRides(Authentication auth) {
+    public PageResponseDto<RideOfferResponseDto> myRides(
+            Authentication auth, @PageableDefault(size = 20) Pageable pageable) {
         UUID driverId = (UUID) auth.getPrincipal();
-        return rideOfferService.getMyRides(driverId);
+        return rideOfferService.getMyRides(driverId, pageable);
     }
 }

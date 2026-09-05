@@ -13,12 +13,15 @@ import com.QuickPool.enums.RideStatus;
 import com.QuickPool.exception.ConflictException;
 import com.QuickPool.exception.ForbiddenException;
 import com.QuickPool.exception.NotFoundException;
+import com.QuickPool.dtos.PageResponseDto;
 import com.QuickPool.repository.BookingRepository;
 import com.QuickPool.repository.RideOfferRepository;
 import com.QuickPool.repository.UserRepository;
 import com.QuickPool.repository.VehicleRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -203,8 +206,9 @@ public class RideOfferService {
                 .collect(Collectors.toList());
     }
 
-    public List<RideOfferResponseDto> getMyRides(UUID driverId) {
-        return rideOfferRepository.findByDriverIdOrderByCreatedAtDesc(driverId)
-                .stream().map(RideOfferResponseDto::new).collect(Collectors.toList());
+    public PageResponseDto<RideOfferResponseDto> getMyRides(UUID driverId, Pageable pageable) {
+        Slice<RideOffer> slice = rideOfferRepository.findByDriverIdOrderByCreatedAtDesc(driverId, pageable);
+        var content = slice.getContent().stream().map(RideOfferResponseDto::new).toList();
+        return new PageResponseDto<>(content, slice.hasNext());
     }
 }
