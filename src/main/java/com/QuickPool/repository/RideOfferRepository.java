@@ -3,6 +3,8 @@ package com.QuickPool.repository;
 import com.QuickPool.entity.RideOffer;
 import com.QuickPool.enums.RideStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -28,6 +30,9 @@ public interface RideOfferRepository extends JpaRepository<RideOffer, UUID> {
             java.util.Collection<RideStatus> statuses, LocalDateTime cutoff);
 
     List<RideOffer> findByDriverIdOrderByCreatedAtDesc(UUID driverId);
+
+    // Paged variant for /ride-offers/mine.
+    Slice<RideOffer> findByDriverIdOrderByCreatedAtDesc(UUID driverId, Pageable pageable);
 
     /**
      * Corridor search, pushed into PostGIS instead of scanning every active ride into Java.
