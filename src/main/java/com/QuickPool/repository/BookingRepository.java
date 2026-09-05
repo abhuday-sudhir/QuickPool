@@ -12,6 +12,7 @@ import java.util.UUID;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
     List<Booking> findByRideOfferIdAndStatus(UUID rideOfferId, BookingStatus status);
+    List<Booking> findByRideOfferIdAndStatusOrderByCreatedAtAsc(UUID rideOfferId, BookingStatus status);
     List<Booking> findByRideOfferIdAndStatusIn(UUID rideOfferId, Collection<BookingStatus> statuses);
     List<Booking> findByPassengerId(UUID passengerId);
     List<Booking> findByPassengerIdOrderByCreatedAtDesc(UUID passengerId);

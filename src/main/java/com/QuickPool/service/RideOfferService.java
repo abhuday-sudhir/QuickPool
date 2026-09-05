@@ -211,4 +211,29 @@ public class RideOfferService {
         var content = slice.getContent().stream().map(RideOfferResponseDto::new).toList();
         return new PageResponseDto<>(content, slice.hasNext());
     }
+
+    /**
+     * Stable seat order for a ride's confirmed passengers, oldest booking first. Every
+     * client on the live-location socket (driver and passengers alike) calls this once
+     * so a given passenger renders under the same number — "2" — on every screen.
+     * Restricted to people actually on the ride: its driver, or one of these passengers.
+     */
+    public List<UUID> getConfirmedPassengerOrder(UUID rideOfferId, UUID requesterId) {
+        RideOffer offer = rideOfferRepository.findById(rideOfferId)
+                .orElseThrow(() -> new NotFoundException("Ride offer not found"));
+
+        List<UUID> passengerIds = bookingRepository
+                .findByRideOfferIdAndStatusOrderByCreatedAtAsc(rideOfferId, BookingStatus.CONFIRMED)
+                .stream()
+                .map(Booking::getPassengerId)
+                .toList();
+
+        boolean requesterInvolved = offer.getDriverId().equals(requesterId)
+                || passengerIds.contains(requesterId);
+        if (!requesterInvolved) {
+            throw new ForbiddenException("Not part of this ride");
+        }
+
+        return passengerIds;
+    }
 }

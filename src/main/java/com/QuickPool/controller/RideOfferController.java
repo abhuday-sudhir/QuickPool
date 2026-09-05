@@ -55,4 +55,11 @@ public class RideOfferController {
         UUID driverId = (UUID) auth.getPrincipal();
         return rideOfferService.getMyRides(driverId, pageable);
     }
+
+    /** Confirmed passenger ids in booking order, for numbering markers 1, 2, 3... on the live map. */
+    @GetMapping("/{id}/passengers")
+    public List<UUID> passengerOrder(@PathVariable UUID id, Authentication auth) {
+        UUID requesterId = (UUID) auth.getPrincipal();
+        return rideOfferService.getConfirmedPassengerOrder(id, requesterId);
+    }
 }
