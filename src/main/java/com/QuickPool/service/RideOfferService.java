@@ -17,7 +17,6 @@ import com.QuickPool.repository.BookingRepository;
 import com.QuickPool.repository.RideOfferRepository;
 import com.QuickPool.repository.UserRepository;
 import com.QuickPool.repository.VehicleRepository;
-import com.QuickPool.utils.GeoUtils;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -81,7 +80,15 @@ public class RideOfferService {
         return new RideOfferResponseDto(save);
     }
 
-    /** @param viewerId the searching user, whose own rides are never returned */
+    /**
+     * @param viewerId the searching user, whose own rides are never returned
+     *
+     * The corridor check (both pickup and drop within {@link #CORRIDOR_RADIUS_METERS} of the
+     * ride's origin-destination line) runs in PostGIS via {@code searchCorridor}, not in Java —
+     * see the GiST index on {@code ride_offers.route} (migration V10). Only the block-list
+     * check stays here: it is a per-viewer set, not something worth pushing into every search
+     * query.
+     */
     public List<RideOfferResponseDto> search(RideSearchRequestDto req, UUID viewerId) {
         LocalDateTime from = req.getEarliestTime() != null
                 ? req.getEarliestTime() : LocalDateTime.now();
@@ -91,14 +98,13 @@ public class RideOfferService {
         // Blocked in either direction: their rides must not surface for this viewer.
         var hidden = safetyService.hiddenFrom(viewerId);
 
-        var matches = rideOfferRepository
-                .findByStatusAndDepartureTimeBetween(RideStatus.ACTIVE, from, to)
+        var matches = rideOfferRepository.searchCorridor(
+                        RideStatus.ACTIVE.name(), from, to, viewerId,
+                        req.getPickupLat(), req.getPickupLng(),
+                        req.getDropLat(), req.getDropLng(),
+                        CORRIDOR_RADIUS_METERS)
                 .stream()
-                .filter(r -> !r.getDriverId().equals(viewerId))
                 .filter(r -> !hidden.contains(r.getDriverId()))
-                .filter(r -> r.getSeatsAvailable() > 0)
-                .filter(r -> withinCorridor(r, req.getPickupLat(), req.getPickupLng())
-                        && withinCorridor(r, req.getDropLat(), req.getDropLng()))
                 .toList();
 
         // One lookup for every driver on the page instead of one per ride.
@@ -114,13 +120,6 @@ public class RideOfferService {
                         drivers.get(r.getDriverId()),
                         vehicles.get(r.getDriverId())))
                 .collect(Collectors.toList());
-    }
-
-    private boolean withinCorridor(RideOffer r, double lat, double lng) {
-        double dist = GeoUtils.distancePointToSegmentMeters(
-                lat, lng, r.getOriginLat(), r.getOriginLng(),
-                r.getDestinationLat(), r.getDestinationLng());
-        return dist <= CORRIDOR_RADIUS_METERS;
     }
 
     @Transactional
