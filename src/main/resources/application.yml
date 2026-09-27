@@ -50,6 +50,11 @@ app:
     # carry an IP restriction naming this server, and be limited to the Directions API.
     directions-key: ${MAPS_SERVER_KEY:}
 
+  fcm:
+    # Path to the Firebase service account JSON. Absent locally means push is disabled and
+    # notifications are inbox-only — the app still works, it just doesn't buzz.
+    credentials: ${FIREBASE_CREDENTIALS:}
+
 management:
   endpoints:
     web:

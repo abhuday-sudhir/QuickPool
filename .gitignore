@@ -34,3 +34,6 @@ build/
 
 ### Local secrets ###
 .env
+
+# Firebase service account private key — NEVER commit
+firebase-service-account.json

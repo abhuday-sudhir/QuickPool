@@ -17,6 +17,9 @@ public class PersistentNotificationService implements NotificationService {
     @Autowired
     private NotificationRepository notificationRepository;
 
+    @Autowired
+    private FcmSender fcmSender;
+
     @Override
     public void notifyUser(UUID userId, String title, String message, NotificationType type, UUID entityId) {
         Notification n = new Notification();
@@ -31,8 +34,9 @@ public class PersistentNotificationService implements NotificationService {
 
         log.info("[NOTIFY] user={} type={} title='{}'", userId, type, title);
 
-        // FCM hook: once google-services.json and a service account exist, send the push
-        // here using the same title/message/entityId. The inbox row above is the source of
-        // truth either way, so a failed push never loses the notification.
+        // The inbox row above is the source of truth; the push is best-effort on top of it.
+        // FcmSender is @Async and swallows its own failures, so a dead token or an FCM outage
+        // costs a buzz and never the notification.
+        fcmSender.send(userId, title, message, type, entityId);
     }
 }
