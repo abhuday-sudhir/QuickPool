@@ -37,3 +37,6 @@ build/
 
 # Firebase service account private key — NEVER commit
 firebase-service-account.json
+
+# Local FCM credentials test script
+scripts_fcm_test.py
