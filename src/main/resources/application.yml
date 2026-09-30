@@ -66,3 +66,8 @@ management:
   metrics:
     tags:
       application: carpool-backend
+    # Publish latency buckets so Prometheus can compute p95/p99 per endpoint with
+    # histogram_quantile(); without this only count/sum/max are exported.
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true

@@ -42,13 +42,19 @@ public interface RideOfferRepository extends JpaRepository<RideOffer, UUID> {
      * evaluating {@code GeoUtils.distancePointToSegmentMeters} against every matching row in Java.
      * Column list is explicit (not {@code SELECT *}) so it lines up with {@link RideOffer}'s
      * mapped columns — {@code route} itself is deliberately not one of them.
+     * <p>
+     * {@code status = 'ACTIVE'} is a literal, not a bind parameter, on purpose: it has to match
+     * the predicate of the partial index {@code idx_ride_offers_search_time_route} (V12). Once
+     * pgJDBC switches to a server-side prepared statement, Postgres may use a generic plan, and a
+     * generic plan cannot prove that {@code status = $1} implies {@code status = 'ACTIVE'} — it
+     * silently falls back to the route-only index.
      */
     @Query(value = """
             SELECT id, driver_id, origin_lat, origin_lng, destination_lat, destination_lng,
                    departure_time, seats_total, seats_available, price_per_seat, status,
                    last_lat, last_lng, last_location_at, created_at, updated_at
             FROM ride_offers
-            WHERE status = :status
+            WHERE status = 'ACTIVE'
               AND departure_time BETWEEN :from AND :to
               AND driver_id <> :viewerId
               AND seats_available > 0
@@ -56,7 +62,6 @@ public interface RideOfferRepository extends JpaRepository<RideOffer, UUID> {
               AND ST_DWithin(route, ST_SetSRID(ST_MakePoint(:dropLng, :dropLat), 4326)::geography, :radiusMeters)
             """, nativeQuery = true)
     List<RideOffer> searchCorridor(
-            @Param("status") String status,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             @Param("viewerId") UUID viewerId,

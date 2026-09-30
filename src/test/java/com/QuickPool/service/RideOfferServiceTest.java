@@ -91,7 +91,7 @@ class RideOfferServiceTest {
         RideOffer visible = offerBy(driver);
         RideOffer blocked = offerBy(blockedDriver);
         when(rideOfferRepository.searchCorridor(
-                eq("ACTIVE"), any(), any(), eq(viewer),
+                any(), any(), eq(viewer),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), eq(2000.0)))
                 .thenReturn(List.of(visible, blocked));
         when(safetyService.hiddenFrom(viewer)).thenReturn(Set.of(blockedDriver));
@@ -107,7 +107,7 @@ class RideOfferServiceTest {
     @Test
     @DisplayName("search() defaults to a 3-hour window from now when none is given")
     void defaultsSearchWindow() {
-        when(rideOfferRepository.searchCorridor(any(), any(), any(), any(),
+        when(rideOfferRepository.searchCorridor(any(), any(), any(),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                 .thenReturn(List.of());
         when(safetyService.hiddenFrom(viewer)).thenReturn(Set.of());
@@ -116,7 +116,7 @@ class RideOfferServiceTest {
 
         var fromCaptor = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
         var toCaptor = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(rideOfferRepository).searchCorridor(any(), fromCaptor.capture(), toCaptor.capture(),
+        verify(rideOfferRepository).searchCorridor(fromCaptor.capture(), toCaptor.capture(),
                 any(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
 
         assertThat(Duration.between(fromCaptor.getValue(), toCaptor.getValue())).isEqualTo(Duration.ofHours(3));
@@ -125,7 +125,7 @@ class RideOfferServiceTest {
     @Test
     @DisplayName("search() looks up every match's driver and vehicle in one batched call each, not per ride")
     void batchesDriverAndVehicleLookups() {
-        when(rideOfferRepository.searchCorridor(any(), any(), any(), any(),
+        when(rideOfferRepository.searchCorridor(any(), any(), any(),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                 .thenReturn(List.of(offerBy(driver), offerBy(driver)));
         when(safetyService.hiddenFrom(viewer)).thenReturn(Set.of());

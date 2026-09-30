@@ -102,7 +102,7 @@ public class RideOfferService {
         var hidden = safetyService.hiddenFrom(viewerId);
 
         var matches = rideOfferRepository.searchCorridor(
-                        RideStatus.ACTIVE.name(), from, to, viewerId,
+                        from, to, viewerId,
                         req.getPickupLat(), req.getPickupLng(),
                         req.getDropLat(), req.getDropLng(),
                         CORRIDOR_RADIUS_METERS)
