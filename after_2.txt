@@ -1,0 +1,13 @@
+                                                                                                                                                                                                 QUERY PLAN                                                                                                                                                                                                  
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_ride_offers_search_time_route on ride_offers  (cost=0.53..33.56 rows=1 width=128) (actual time=14.315..76.275 rows=546 loops=1)
+   Index Cond: ((departure_time >= '2026-10-06 00:00:00'::timestamp without time zone) AND (departure_time <= '2026-10-13 00:00:00'::timestamp without time zone) AND (route && _st_expand('0101000020E61000006666666666465340CDCCCCCCCC8C3C40'::geography, '2000'::double precision)) AND (route && _st_expand('0101000020E6100000C3F5285C8F425340B81E85EB51783C40'::geography, '2000'::double precision)))
+   Filter: ((driver_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND st_dwithin(route, '0101000020E61000006666666666465340CDCCCCCCCC8C3C40'::geography, '2000'::double precision, true) AND st_dwithin(route, '0101000020E6100000C3F5285C8F425340B81E85EB51783C40'::geography, '2000'::double precision, true))
+   Rows Removed by Filter: 6229
+   Buffers: shared hit=7889
+ Planning:
+   Buffers: shared hit=482
+ Planning Time: 23.997 ms
+ Execution Time: 76.451 ms
+(9 rows)
+
