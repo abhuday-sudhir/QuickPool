@@ -33,6 +33,7 @@ spring:
 logging:
   level:
     org.flywaydb: DEBUG
+    org.springframework.web: DEBUG
 
 app:
   jwt:
